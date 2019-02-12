@@ -44,7 +44,9 @@ class LocationRepository: Repository {
             
             success(venues)
             
-            self.requests.removeLast()
+            if self.requests.isEmpty == false {
+                self.requests.removeLast()
+            }
         }
         
         request.errorCompletion = { response in

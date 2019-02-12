@@ -10,9 +10,14 @@ import Foundation
 
 protocol Action { }
 
-protocol State { }
+protocol State {
+    
+    var viewState: ViewState! { get set }
+}
 
-typealias Reducer = (_ action: Action, _ state: State?) -> State
+typealias Reducer = (_ action: Action,
+    _ state: State?,
+    _ completion: @escaping ((State) -> Void)) -> Void
 
 protocol StoreSubscriber {
     func newState(state: State)
@@ -29,12 +34,19 @@ class Store {
     }
     
     func dispatch(action: Action) {
-        state = reducer(action, state)
-        
-        subscribers.forEach { $0.newState(state: state!) }
+        reducer(action, state, {[weak self] newState in
+            guard let self = self else { return }
+            self.state = newState
+            
+            self.subscribers.forEach { $0.newState(state: self.state!) }
+        })
     }
     
     func subscribe(_ newSubscriber: StoreSubscriber) {
         subscribers.append(newSubscriber)
+    }
+    
+    func getState() -> State? {
+        return self.state
     }
 }

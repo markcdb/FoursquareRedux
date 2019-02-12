@@ -18,6 +18,7 @@ class LocationVC: UIViewController {
                        Cells.loaderCell,
                        Cells.permissionCell]
     
+    var authorized: Bool = false
 }
 
 //MARK: - Overrides
@@ -30,7 +31,8 @@ extension LocationVC {
         title = Titles.nearby
         navigationController?.navigationBar.prefersLargeTitles = true
         
-        viewModel = LocationVM(delegate: self)
+        viewModel = LocationVM()
+        viewModel.subscribe(self)
         
         for identifier in identifiers {
             tableView.register(UINib(nibName: identifier,
@@ -96,27 +98,31 @@ extension LocationVC {
 }
 
 //MARK: - LocationVM Delegate
-extension LocationVC: LocationVMDelegate {
-    func locationVM(_ vm: LocationVM,
-                    viewStateChanged state: ViewState,
-                    message msg: String?) {
+extension LocationVC: StoreSubscriber {
+    func newState(state: State) {
+        guard let state = state as? LocationState else { return }
+        authorized = state.authorized
         
-        if state == .loading("") {
+        switch state.viewState {
+        case .loading(let message)?:
+            print("\(self) NEWSTATE: \(message ?? "")")
             tableView.reloadSections([0], with: .automatic)
-        }
-        
-        if state == .success("") {
+            break
+        case .success(let message)?:
+            print("\(self) NEWSTATE: \(message ?? "")")
             tableView.performBatchUpdates({
                 tableView.deleteRows(at: [IndexPath(row: 0, section: 0)],
                                      with: .bottom)
                 tableView.reloadSections([0], with: .automatic)
             })
+            break
+        case .error(let message)?:
+            print("\(self) NEWSTATE: \(message ?? "")")
+            break
+        default:
+            tableView.reloadData()
+            break
         }
-    }
-    
-    func locationVmLocationUpdateFailed(_ vm: LocationVM) {
-        
-        tableView.reloadData()
     }
 }
 
@@ -132,7 +138,7 @@ extension LocationVC: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView,
                    heightForRowAt indexPath: IndexPath) -> CGFloat {
         
-        if viewModel.getLocationAuthorization() == false {
+        if authorized == false {
             let bar = navigationController?.navigationBar.frame.height ?? 0.0
             return view.frame.height - bar
         }
@@ -147,7 +153,7 @@ extension LocationVC: UITableViewDelegate, UITableViewDataSource {
             return 1
         }
         
-        if viewModel.getLocationAuthorization() == false {
+        if authorized == false {
             return 1
         }
         
@@ -158,7 +164,6 @@ extension LocationVC: UITableViewDelegate, UITableViewDataSource {
                    cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         var cell: UITableViewCell! = UITableViewCell()
-        let authorized = viewModel.getLocationAuthorization()
         
         if viewModel.getState() == .loading(""),
             authorized == true {

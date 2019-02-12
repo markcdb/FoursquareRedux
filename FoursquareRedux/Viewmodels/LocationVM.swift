@@ -17,52 +17,77 @@ protocol LocationVMDelegate: class {
     func locationVmLocationUpdateFailed(_ vm: LocationVM)
 }
 
+struct LocationAction: ReduxAction {
+    
+    var value: Location!
+    var authorized: Bool!
+}
+
+struct LocationState: ReduxState {
+    var value: [FoursquareLocation]!
+    var authorized: Bool!
+    var viewState: ViewState!
+}
+
 class LocationVM: BaseVM<[FoursquareLocation]>, CLLocationManagerDelegate {
     
+    private var store: Store!
     private var repository: LocationRepository!
     private var venues: [FoursquareLocation] = []
-    private var location: Location!
-    private var authorized: Bool = true
     
     private let locationManager = CLLocationManager()
     private let geoCoder = CLGeocoder()
     
-    weak public var delegate: LocationVMDelegate?
-    
-    override var state: ReduxState<[FoursquareLocation]>! {
-        didSet {
-            let message = state.state.getString()
-            
-            self.delegate?.locationVM(self,
-                                      viewStateChanged: state.state,
-                                      message: message)
-        }
-    }
-    
-    init(delegate: LocationVMDelegate) {
+    override init() {
         super.init()
+        self.store = Store(reducer: reducer, state: nil)
+        
         self.repository = LocationRepository()
-        self.delegate = delegate
     }
 
-    public func getVenues() {
+    private func reducer(_ action: Action,
+                         _ state: State?,
+                         _ completion: @escaping ((State) -> Void)) {
         
-        state.state = .loading(nil)
-        
-        repository.getVenues(location: self.location,
-                             onSuccess: {[weak self] venues in
-                                guard let self = self else { return }
-                                
-                                self.venues = venues
-                                self.state.state = .success(nil)
+        var state = LocationState()
 
-        }) {[weak self] error in
-            guard let self = self else { return }
+        if let action = action as? LocationAction {
+            state.authorized = action.authorized
+
+            if let location = action.value {
+                
+                if state.viewState != .loading(nil) {
+                    state.viewState = .loading(nil)
+                    
+                    completion(state)
+                    self.repository.getVenues(location: location, onSuccess: { (venues) in
+                        state.viewState = .success(nil)
+                        self.venues = venues
+                        completion(state)
+                    }, onError: { error in
+                        state.viewState = .error(error.localizedDescription)
+                        completion(state)
+                    })
+                }
+                
+                return
+            }
             
-            self.state.state = .error(error.localizedDescription)
+            completion(state)
         }
     }
     
+    public func subscribe(_ subscriber: StoreSubscriber) {
+        
+        store?.subscribe(subscriber)
+    }
+    
+    public func getState() -> ViewState? {
+        guard let state = store?.getState() else { return nil }
+        
+        return state.viewState
+    }
+
     public func getVenuesCount() -> Int {
         
         return venues.count
@@ -86,31 +111,24 @@ class LocationVM: BaseVM<[FoursquareLocation]>, CLLocationManagerDelegate {
         return venues[index].distance + " meters"
     }
     
-    public func getState() -> ViewState? {
-        
-        return state.state
-    }
-    
-    public func getLocationAuthorization() -> Bool {
-        
-        return authorized
-    }
-    
     public func loadDefaultLocations() {
         locationManager.delegate = self
+        
+        var action = LocationAction()
         
         Permissions.isLocationServiceAuthorized { (authorization) in
             switch authorization {
             case .authorized:
-                self.authorized = true
+                action.authorized = true
                 self.locationManager.startUpdatingLocation()
             case .rejected:
-                self.authorized = false
-                self.delegate?.locationVmLocationUpdateFailed(self)
+                action.authorized = false
                 break
             case .notDetermined:
                 self.locationManager.requestWhenInUseAuthorization()
             }
+            
+            self.store.dispatch(action: action)
         }
     }
     
@@ -118,18 +136,21 @@ class LocationVM: BaseVM<[FoursquareLocation]>, CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager,
                          didChangeAuthorization status: CLAuthorizationStatus) {
         
+        var action = LocationAction()
+
         switch status {
             
         case .authorizedWhenInUse: fallthrough
         case .authorizedAlways:
-            authorized = true
+            action.authorized = true
             locationManager.startUpdatingLocation()
         case .denied: fallthrough
         case .restricted:
-            authorized = false
-            delegate?.locationVmLocationUpdateFailed(self)
+            action.authorized = false
         case .notDetermined: break
         }
+        
+        self.store.dispatch(action: action)
     }
     
     func locationManager(_ manager: CLLocationManager,
@@ -145,14 +166,14 @@ class LocationVM: BaseVM<[FoursquareLocation]>, CLLocationManagerDelegate {
         
         locationManager.stopUpdatingLocation()
         
-        self.location = Location(id: UUID().uuidString,
-                                 lat: String(location.coordinate.latitude),
-                                 lng: String(location.coordinate.longitude))
         
+        var action = LocationAction()
         
-        if state.state == nil ||
-            state.state != .loading(nil) {
-            getVenues()
-        }
+        action.authorized = true
+        action.value = Location(id: UUID().uuidString,
+                                lat: String(location.coordinate.latitude),
+                                lng: String(location.coordinate.longitude))
+        
+        store.dispatch(action: action)
     }
 }
