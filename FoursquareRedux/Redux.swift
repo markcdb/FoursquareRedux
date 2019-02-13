@@ -15,6 +15,18 @@ protocol State {
     var viewState: ViewState! { get set }
 }
 
+protocol ReduxAction: Action {
+    
+    associatedtype T
+    var value: T! { get set }
+}
+
+protocol ReduxState: State {
+    
+    associatedtype T
+    var value: T! { get set }
+}
+
 typealias Reducer = (_ action: Action,
     _ state: State?,
     _ completion: @escaping ((State) -> Void)) -> Void

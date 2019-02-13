@@ -8,7 +8,7 @@
 
 import Foundation
 
-class LocationDetailsVM: BaseVM<FoursquareLocation> {
+class LocationDetailsVM: BaseVM {
     
     private var venue: FoursquareLocation!
     private var values: [[String: String]] = []

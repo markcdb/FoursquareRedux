@@ -9,14 +9,6 @@
 import Foundation
 import MapKit
 
-protocol LocationVMDelegate: class {
-    func locationVM(_ vm: LocationVM,
-                    viewStateChanged state: ViewState,
-                    message msg: String?)
-    
-    func locationVmLocationUpdateFailed(_ vm: LocationVM)
-}
-
 struct LocationAction: ReduxAction {
     
     var value: Location!
@@ -29,7 +21,7 @@ struct LocationState: ReduxState {
     var viewState: ViewState!
 }
 
-class LocationVM: BaseVM<[FoursquareLocation]>, CLLocationManagerDelegate {
+class LocationVM: BaseVM, CLLocationManagerDelegate {
     
     private var store: Store!
     private var repository: LocationRepository!

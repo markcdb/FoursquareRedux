@@ -8,18 +8,6 @@
 
 import Foundation
 
-protocol ReduxAction: Action {
-    
-    associatedtype T
-    var value: T! { get set }
-}
-
-protocol ReduxState: State {
-    
-    associatedtype T
-    var value: T! { get set }
-}
-
 enum ViewState: Equatable {
     case loading(String?)
     case success(String?)
@@ -65,4 +53,4 @@ enum ViewState: Equatable {
     }
 }
 
-class BaseVM<T>: NSObject {}
+class BaseVM: NSObject {}
