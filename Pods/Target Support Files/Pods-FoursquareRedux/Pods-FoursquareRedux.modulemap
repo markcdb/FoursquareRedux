@@ -1,6 +1,0 @@
-framework module Pods_FoursquareRedux {
-  umbrella header "Pods-FoursquareRedux-umbrella.h"
-
-  export *
-  module * { export * }
-}
